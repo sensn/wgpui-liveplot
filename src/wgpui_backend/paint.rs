@@ -1,6 +1,6 @@
 use wgpui::{
     App, BorderStyle, Bounds, ContentMask, Corners, Edges, Hsla, PathBuilder, Pixels, Rgba,
-    TextRun, Window, font, point, px, quad,
+    TextRun, Window, font, point, px, quad, rgb,
 };
 
 use crate::geom::{ScreenPoint, ScreenRect};
@@ -9,7 +9,53 @@ use crate::render::{
 };
 
 use super::frame::PlotFrame;
+//
+//use wgpui::{Window, PathBuilder, Pixels, Bounds, point, px, rgb};
+// Zeichnet eine Test-Sinuswelle über die WGPUI-Pfad-Pipeline.
+/// Reagiert dynamisch auf Zoom und Pan, da sie KEINE festen Canvas-Bounds nutzt!
+pub fn paint_wgpui_dynamic_test_sine(window: &mut Window) {
+    let mut builder = PathBuilder::fill();
+    
+    // Fest definierte, absolute Pixel-Koordinaten im Raum.
+    // Diese simulieren die transformierten Datenpunkte deines Plot-Frameworks.
+    let start_x = 100.0_f32;
+    let center_y = 300.0_f32;
+    let width = 400.0_f32;
+    let height = 100.0_f32;
+    let steps = 50;
+    
+    let mut points = Vec::with_capacity(steps + 3);
 
+    // 1. Startpunkt links auf der Nulllinie
+    points.push(point(px(start_x), px(center_y)));
+
+    // 2. Erzeuge die Wellenform über absolute Pixel-Schritte
+    for i in 0..=steps {
+        let t = (i as f32) / (steps as f32);
+        let cur_x = start_x + width * t;
+        let angle = t * 2.0 * std::f32::consts::PI * 2.0; // 2 Oszillationen
+        let cur_y = center_y + (angle.sin() * height);
+        
+        points.push(point(px(cur_x), px(cur_y)));
+    }
+
+    // 3. Endpunkt rechts auf der Nulllinie
+    points.push(point(px(start_x + width), px(center_y)));
+
+    // 4. Pfad-Struktur übergeben (Strikte WGPUI-Syntax)
+    if let Some(&first) = points.first() {
+        builder.move_to(first);
+        for &pt in points.iter().skip(1) {
+            builder.line_to(pt);
+        }
+        builder.close(); // Zwingend schließen!
+        
+        if let Ok(path) = builder.build() {
+            window.paint_path(path, rgb(0x06b6d4)); // Cyan-Blau
+        }
+    }
+}
+//
 pub(crate) fn paint_frame(frame: &PlotFrame, window: &mut Window, cx: &mut App) {
     let mut clip_stack: Vec<ContentMask<Pixels>> = Vec::new();
     
@@ -26,7 +72,11 @@ pub(crate) fn paint_frame(frame: &PlotFrame, window: &mut Window, cx: &mut App) 
             crate::render::RenderCommand::LineSegments { segments, style } => {
                 with_clip(window, &clip_stack, |window| {
                     paint_lines(window, segments, *style);
-                });
+  // 🌟 TEST-TRIGGER: Zeichnet die feste Cyan-Sinuswelle flächig in den Plot!
+        // (Stelle sicher, dass 'bounds' hier im Scope liegt)
+        paint_wgpui_dynamic_test_sine(window); 
+                
+                  });
             }
             crate::render::RenderCommand::Points { points, style } => {
                 with_clip(window, &clip_stack, |window| {
