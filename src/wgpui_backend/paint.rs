@@ -59,7 +59,10 @@ fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) 
     if segments.is_empty() {
         return;
     }
-    let thickness = style.width.max(1.0);
+    
+    // FIX 1: Wir garantieren eine Mindeststärke von 1.5 Pixeln, 
+    // um High-DPI/Subpixel-Verschlucken auf Linux-Treibern zu verhindern!
+    let thickness = style.width.max(1.5);
     let half_thick = thickness * 0.5;
 
     for segment in segments {
@@ -68,8 +71,7 @@ fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) 
         let len = (dx * dx + dy * dy).sqrt();
         if len < 0.1 { continue; }
 
-        // 1. Wenn die Linie exakt horizontal oder vertikal verläuft, 
-        // nutzen wir die performante achsensymmetrische Quad-Abkürzung
+        // Perfekt horizontale Linien (z.B. Gitterlinien)
         if dy.abs() < 0.1 {
             let min_x = segment.start.x.min(segment.end.x);
             let bounds = Bounds::from_corners(
@@ -85,7 +87,10 @@ fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) 
                 BorderStyle::default(),
             ));
             continue;
-        } else if dx.abs() < 0.1 {
+        } 
+        
+        // Perfekt vertikale Linien
+        if dx.abs() < 0.1 {
             let min_y = segment.start.y.min(segment.end.y);
             let bounds = Bounds::from_corners(
                 point(px(segment.start.x - half_thick), px(min_y)),
@@ -102,28 +107,29 @@ fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) 
             continue;
         }
 
-        // 2. FÜR DIAGONALE LINIEN (Die eigentliche Sinuskurve):
-        // Um Treppenstufen zu verhindern, zerlegen wir das Segment in 
-        // 4 sehr feine, aneinandergereihte Sub-Quads. Das emuliert eine
-        // stufenlose, glatte Kurve perfekt im stabilen Quad-Rasterizer!
-        let steps = 4;
+        // FIX 2: DIAGONALE SEGMENTE (Die Sinuskurve)
+        // Wir nutzen KEIN paint_path. Wir zerlegen das Segment direkt in 
+        // extrem dichte, überlappende Quad-Flächen. Das zwingt die GPU über die 
+        // stabile Quad-Pipeline Pixel auszugeben und tilgt Treppenstufen komplett!
+        let steps = (len * 2.0).ceil().max(4.0) as usize; // Höhere Dichte für perfekte Glättung
         let step_x = dx / steps as f32;
         let step_y = dy / steps as f32;
 
         for i in 0..steps {
-            let start_x = segment.start.x + i as f32 * step_x;
-            let start_y = segment.start.y + i as f32 * step_y;
-            let end_x = start_x + step_x;
-            let end_y = start_y + step_y;
+            let s_x = segment.start.x + i as f32 * step_x;
+            let s_y = segment.start.y + i as f32 * step_y;
+            let e_x = s_x + step_x;
+            let e_y = s_y + step_y;
 
-            let min_x = start_x.min(end_x);
-            let min_y = start_y.min(end_y);
-            let max_x = start_x.max(end_x);
-            let max_y = start_y.max(end_y);
+            let min_x = s_x.min(e_x);
+            let min_y = s_y.min(e_y);
+            let max_x = s_x.max(e_x);
+            let max_y = s_y.max(e_y);
 
+            // Bounds mit Sicherheitsüberlapp (+0.3) gegen subpixel-Spalten
             let bounds = Bounds::from_corners(
-                point(px(min_x - 0.2), px(min_y - 0.2)), // Winziger Überlass verhindert Lücken
-                point(px(max_x + 0.2), px(max_y + 0.2)),
+                point(px(min_x - half_thick - 0.3), px(min_y - half_thick - 0.3)),
+                point(px(max_x + half_thick + 0.3), px(max_y + half_thick + 0.3)),
             );
 
             window.paint_quad(quad(
@@ -137,6 +143,7 @@ fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) 
         }
     }
 }
+
 
 fn paint_points(window: &mut Window, points: &[ScreenPoint], style: MarkerStyle) {
     if points.is_empty() {
