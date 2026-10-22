@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use gpui::MouseButton;
+// Ported straight from the wgpui engine crate namespace
+use wgpui::MouseButton;
 
 use crate::axis::AxisLayoutCache;
 use crate::datasource::DecimationScratch;

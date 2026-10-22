@@ -1,18 +1,18 @@
-//! gpui_liveplot is a high-performance plotting library built for GPUI.
+//! wgpui_liveplot is a high-performance plotting library built for wgpui.
 //!
 //! # Overview
 //! - Designed for append-only, high-throughput telemetry and sensor streams.
 //! - Plot-level axes with shared transforms across all series.
 //! - Viewport-aware decimation keeps rendering near `O(width)` for smooth interaction.
-//! - Interactive pan, zoom, box zoom, hover readout, and pin annotations via GPUI.
+//! - Interactive pan, zoom, box zoom, hover readout, and pin annotations via wgpui.
 //!
 //! # Feature flags
-//! - `gpui_component_theme`: when enabled, [`gpui_backend::PlotView`] will use the
-//!   current `gpui-component` global theme if it exists.
+//! - `gpui_component_theme`: when enabled, [`wgpui_backend::PlotView`] will use the
+//!   current `wgpui-kit` global theme if it exists.
 //!
 //! # Quick start
 //! ```rust
-//! use gpui_liveplot::{LineStyle, Plot, Series, SeriesKind, Theme};
+//! use wgpui_liveplot::{LineStyle, Plot, Series, SeriesKind, Theme};
 //!
 //! let mut plot = Plot::builder().theme(Theme::dark()).build();
 //! let series = Series::from_iter_y(
@@ -24,8 +24,8 @@
 //! plot.refresh_viewport(0.05, 1e-6);
 //! ```
 //!
-//! # GPUI integration
-//! Use [`gpui_backend::PlotView`] to render and interact with a plot inside a GPUI
+//! # wgpui integration
+//! Use [`wgpui_backend::PlotView`] to render and interact with a plot inside a wgpui
 //! window. See the `examples/` directory for complete runnable examples.
 
 #![forbid(unsafe_code)]
@@ -41,9 +41,11 @@ pub mod style;
 pub mod transform;
 pub mod view;
 
-pub mod gpui_backend;
+// Renamed the backend module to match the new engine context
+pub mod wgpui_backend;
 
-pub use gpui::{Hsla, Rgba};
+// Exporting core canvas types straight from the wgpui crate
+pub use wgpui::{Hsla, Rgba};
 
 pub use axis::{AxisConfig, AxisConfigBuilder, AxisFormatter, TickConfig};
 pub use datasource::AppendError;
@@ -55,6 +57,6 @@ pub use series::{Series, SeriesId, SeriesKind};
 pub use style::Theme;
 pub use view::{Range, View, Viewport};
 
-pub use gpui_backend::{
+pub use wgpui_backend::{
     LinkMemberId, PlotHandle, PlotLinkGroup, PlotLinkOptions, PlotView, PlotViewConfig,
 };

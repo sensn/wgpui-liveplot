@@ -35,7 +35,7 @@ impl Default for PlotLinkOptions {
     }
 }
 
-/// Shared link group used to synchronize multiple [`PlotView`](crate::gpui_backend::PlotView) instances.
+/// Shared link group used to synchronize multiple [`PlotView`](crate::wgpui_backend::PlotView) instances.
 #[derive(Debug, Clone, Default)]
 pub struct PlotLinkGroup {
     inner: Arc<RwLock<LinkGroupState>>,

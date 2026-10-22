@@ -6,7 +6,7 @@
 use crate::geom::{Point, ScreenPoint, ScreenRect};
 use crate::transform::Transform;
 use crate::view::Viewport;
-use gpui::Rgba;
+use wgpui::Rgba;
 
 /// Line stroke styling.
 ///

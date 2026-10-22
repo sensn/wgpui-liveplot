@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
-use gpui::{Bounds, Pixels, Rgba, Window};
+// Alle Layout-Typen und Primitiven werden nun direkt aus wgpui bezogen
+use wgpui::{Bounds, Pixels, Rgba, Window};
 
 use crate::axis::{AxisConfig, AxisLayout, TextMeasurer};
 use crate::geom::{Point as DataPoint, ScreenPoint, ScreenRect};
@@ -21,7 +22,8 @@ use super::geometry::{
 };
 use super::hover::update_hover_target;
 use super::state::{LegendEntry, LegendLayout, PlotUiState};
-use super::text::GpuiTextMeasurer;
+// Importiert den neuen Wgpui-Text-Measurer
+use super::text::WgpuiTextMeasurer;
 
 #[derive(Debug, Clone)]
 pub(crate) struct PlotFrame {
@@ -49,7 +51,8 @@ pub(crate) fn build_frame(
 
     state.viewport = Some(viewport);
 
-    let measurer = GpuiTextMeasurer::new(window);
+    // Verwendet den neuen portierten Text-Measurer
+    let measurer = WgpuiTextMeasurer::new(window);
 
     let mut plot_width = full_width;
     let mut plot_height = full_height;
@@ -260,7 +263,9 @@ fn build_grid(
                 .data_to_screen(DataPoint::new(transform.viewport().x.min, 0.0))
                 .map(|p| p.y)
             {
-                render.push(RenderCommand::LineSegments {
+                // Rest der Grid-Zeichen-Pipeline schließt hier an...
+
+                               render.push(RenderCommand::LineSegments {
                     segments: vec![LineSegment::new(
                         ScreenPoint::new(plot_rect.min.x, y),
                         ScreenPoint::new(plot_rect.max.x, y),
@@ -381,7 +386,7 @@ fn build_pins(
     plot: &Plot,
     transform: &Transform,
     plot_rect: ScreenRect,
-    measurer: &GpuiTextMeasurer<'_>,
+    measurer: &WgpuiTextMeasurer<'_>, // Auf den neuen WgpuiTextMeasurer umgestellt
 ) {
     if plot.pins().is_empty() {
         return;
@@ -582,7 +587,7 @@ fn build_axes(
     transform: &Transform,
     x_axis_rect: ScreenRect,
     y_axis_rect: ScreenRect,
-    measurer: &GpuiTextMeasurer<'_>,
+    measurer: &WgpuiTextMeasurer<'_>, // Auf den neuen WgpuiTextMeasurer angepasst
 ) {
     let theme = plot.theme();
     let mut x_ticks_major = Vec::new();
@@ -770,7 +775,7 @@ fn build_axis_titles(
     plot_rect: ScreenRect,
     x_axis_rect: ScreenRect,
     y_axis_rect: ScreenRect,
-    measurer: &GpuiTextMeasurer<'_>,
+    measurer: &WgpuiTextMeasurer<'_>, // Auf den neuen WgpuiTextMeasurer angepasst
 ) {
     let theme = plot.theme();
     if let Some(title) = axis_title_text(plot.x_axis()) {
@@ -920,7 +925,7 @@ fn build_hover(
     state: &PlotUiState,
     transform: &Transform,
     plot_rect: ScreenRect,
-    measurer: &GpuiTextMeasurer<'_>,
+    measurer: &WgpuiTextMeasurer<'_>, // Auf den neuen WgpuiTextMeasurer umgestellt
 ) {
     let theme = plot.theme();
     let Some(cursor) = state.hover else { return };
@@ -1087,7 +1092,7 @@ fn build_linked_cursor(
     state: &PlotUiState,
     transform: &Transform,
     plot_rect: ScreenRect,
-    measurer: &GpuiTextMeasurer<'_>,
+    measurer: &WgpuiTextMeasurer<'_>, // Ebenfalls auf den neuen WgpuiTextMeasurer angepasst
 ) {
     let Some(x) = state.linked_cursor_x else {
         return;
@@ -1110,7 +1115,9 @@ fn build_linked_cursor(
     let theme = plot.theme();
 
     render.push(RenderCommand::ClipRect(plot_rect));
-    render.push(RenderCommand::LineSegments {
+    // Die restliche Linien-Zeichen-Kette (Style-Zuordnung und Text-Renderings für den synchronisierten Cursor) schließt hier an...
+
+      render.push(RenderCommand::LineSegments {
         segments: vec![LineSegment::new(
             ScreenPoint::new(screen_x, plot_rect.min.y),
             ScreenPoint::new(screen_x, plot_rect.max.y),
@@ -1242,7 +1249,7 @@ fn build_legend(
     plot: &Plot,
     state: &mut PlotUiState,
     plot_rect: ScreenRect,
-    measurer: &GpuiTextMeasurer<'_>,
+    measurer: &WgpuiTextMeasurer<'_>, // Auf den neuen WgpuiTextMeasurer angepasst
 ) {
     let theme = plot.theme();
     let series_list = plot.series();

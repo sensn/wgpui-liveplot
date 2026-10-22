@@ -1,8 +1,11 @@
 //! Style and theming configuration.
-//!
-//! Themes describe plot-level colors (background, grid, axes, overlays).
+#[cfg(feature = "wgpui_kit_theme")]
+use wgpui_kit::component::theme::Theme as KitTheme;
 
-use gpui::Rgba;
+
+// In src/render/mod.rs and src/style.rs
+use wgpui::Rgba;
+
 
 /// Visual theme for plot-level elements such as axes, grid, and overlays.
 ///
@@ -197,28 +200,37 @@ impl Theme {
         }
     }
 
-    /// Build a plot theme from the current `gpui-component` theme.
-    ///
-    /// This is only available when the `gpui_component_theme` feature is enabled.
-    #[cfg(feature = "gpui_component_theme")]
-    pub fn from_gpui_component_theme(theme: &gpui_component::Theme) -> Self {
+           /// Build a plot theme from the current `wgpui-kit` theme.
+    /// This is only available when the `wgpui_kit_theme` feature is enabled.
+    #[cfg(feature = "wgpui_kit_theme")]
+    pub fn from_wgpui_kit_theme(theme: &KitTheme) -> Self {
+        // Hilfsfunktion zur expliziten Umwandlung von Kit-Hsla in dein Plot-Rgba
+        let to_rgba = |hsla: wgpui::Hsla| -> wgpui::Rgba {
+            wgpui::Rgba::from(hsla)
+        };
+
         Self {
-            background: theme.background.into(),
-            axis: theme.foreground.into(),
-            grid_major: theme.border.opacity(0.9).into(),
-            grid_minor: theme.border.opacity(0.45).into(),
-            hover_bg: theme.popover.opacity(0.92).into(),
-            hover_border: theme.border.opacity(0.9).into(),
-            pin_bg: theme.popover.opacity(0.92).into(),
-            pin_border: theme.border.opacity(0.95).into(),
-            selection_fill: theme.selection.opacity(0.35).into(),
-            selection_border: theme.selection.opacity(0.9).into(),
-            legend_bg: theme.popover.opacity(0.9).into(),
-            legend_border: theme.border.opacity(0.8).into(),
+            background: to_rgba(theme.background), 
+            axis: to_rgba(theme.foreground), // text -> foreground
+            
+            grid_major: to_rgba(theme.border.opacity(0.9)),
+            grid_minor: to_rgba(theme.border.opacity(0.45)),
+            
+            hover_bg: to_rgba(theme.popover.opacity(0.92)), // card -> popover
+            hover_border: to_rgba(theme.border.opacity(0.9)),
+            
+            pin_bg: to_rgba(theme.popover.opacity(0.92)),
+            pin_border: to_rgba(theme.border.opacity(0.95)),
+            
+            selection_fill: to_rgba(theme.accent.opacity(0.35)),
+            selection_border: to_rgba(theme.accent.opacity(0.9)),
+            
+            legend_bg: to_rgba(theme.popover.opacity(0.9)),
+            legend_border: to_rgba(theme.border.opacity(0.8)),
         }
     }
-}
 
+}
 impl Default for Theme {
     fn default() -> Self {
         Self::dark()

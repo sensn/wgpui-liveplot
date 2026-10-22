@@ -1,15 +1,15 @@
 [package]
-name = "gpui-liveplot"
+name = "wgpui-liveplot"
 version = "0.2.6"
 edition = "2024"
 rust-version = "1.85"
-description = "High-performance append-only plotting for GPUI applications."
+description = "High-performance append-only plotting for wgpui applications."
 license = "MIT"
 repository = "https://github.com/Modolet/gpui-liveplot"
 homepage = "https://github.com/Modolet/gpui-liveplot"
 documentation = "https://docs.rs/gpui-liveplot"
 readme = "README.md"
-keywords = ["gpui", "plot", "telemetry", "streaming", "visualization"]
+keywords = ["wgpui", "plot", "telemetry", "streaming", "visualization"]
 categories = ["gui", "visualization"]
 
 [lib]
@@ -17,8 +17,13 @@ path = "src/lib.rs"
 
 [features]
 default = []
-gpui_component_theme = ["dep:gpui-component"]
+wgpui_kit_theme = ["dep:wgpui-kit", "wgpui-kit/component"]
+
 
 [dependencies]
-gpui = { version = "0.2.2" }
-gpui-component = { version = "0.5.1", optional = true, default-features = false }
+# Pointing directly to your target framework versions
+wgpui = { version = "0.3.6" }
+wgpui-kit = { version = "0.6.1", optional = true, default-features = false }
+
+[dev-dependencies]
+wgpui-kit = { version = "0.6.1" }

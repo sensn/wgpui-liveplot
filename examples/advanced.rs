@@ -1,27 +1,27 @@
 use std::time::Duration;
 
-use gpui::prelude::*;
-use gpui::{
-    AppContext, Application, AsyncWindowContext, Bounds, Timer, WindowBounds, WindowOptions, div,
+use wgpui::prelude::*;
+use wgpui::{
+    AppContext, AsyncWindowContext, Bounds, WindowBounds, WindowOptions, div,
     px, size,
 };
 
-use gpui_liveplot::{
+use wgpui_liveplot::{
     AxisConfig, LineStyle, MarkerShape, MarkerStyle, Plot, PlotLinkGroup, PlotLinkOptions,
     PlotView, PlotViewConfig, Range, Rgba, Series, SeriesKind, Theme, View,
 };
 
 struct AdvancedDemo {
-    top: gpui::Entity<PlotView>,
-    bottom: gpui::Entity<PlotView>,
+    top: wgpui::Entity<PlotView>,
+    bottom: wgpui::Entity<PlotView>,
 }
 
-impl gpui::Render for AdvancedDemo {
+impl wgpui::Render for AdvancedDemo {
     fn render(
         &mut self,
-        _window: &mut gpui::Window,
-        _cx: &mut gpui::Context<Self>,
-    ) -> impl gpui::IntoElement {
+        _window: &mut wgpui::Window,
+        _cx: &mut wgpui::Context<Self>,
+    ) -> impl wgpui::IntoElement {
         div()
             .size_full()
             .flex()
@@ -32,10 +32,10 @@ impl gpui::Render for AdvancedDemo {
 }
 
 fn build_views(
-    cx: &mut gpui::App,
+    cx: &mut wgpui::App,
 ) -> (
-    gpui::Entity<PlotView>,
-    gpui::Entity<PlotView>,
+    wgpui::Entity<PlotView>,
+    wgpui::Entity<PlotView>,
     Series,
     Series,
 ) {
@@ -69,7 +69,7 @@ fn build_views(
         (0..200).map(|i| {
             let x = i as f64 * 80.0 + 40.0;
             let y = (x * 0.02).sin() * 0.9;
-            gpui_liveplot::Point::new(x, y)
+            wgpui_liveplot::Point::new(x, y)
         }),
         SeriesKind::Scatter(MarkerStyle {
             color: Rgba {
@@ -85,6 +85,7 @@ fn build_views(
 
     let baseline = Series::from_explicit_callback(
         "baseline(callback)",
+
         |x| (x * 0.015).sin() * 0.4,
         Range::new(0.0, 25_000.0),
         5_000,
@@ -146,10 +147,10 @@ fn build_views(
 }
 
 fn spawn_updates(
-    window: &mut gpui::Window,
-    cx: &mut gpui::App,
-    top: gpui::Entity<PlotView>,
-    bottom: gpui::Entity<PlotView>,
+    window: &mut wgpui::Window,
+    cx: &mut wgpui::App,
+    top: wgpui::Entity<PlotView>,
+    bottom: wgpui::Entity<PlotView>,
     mut stream_a: Series,
     mut stream_b: Series,
 ) {
@@ -159,7 +160,9 @@ fn spawn_updates(
             async move {
                 let mut phase = 0.0_f64;
                 loop {
-                    Timer::after(Duration::from_millis(16)).await;
+                    // KORREKTUR: wgpui 0.3.6 nutzt den background_executor() für Task-Delays
+                    cx.background_executor().timer(Duration::from_millis(16)).await;
+                    
                     let _ = stream_a.extend_y((0..120).map(|_| {
                         let y = (phase * 0.9).sin() + 0.2 * (phase * 0.13).cos();
                         phase += 0.02;
@@ -182,7 +185,9 @@ fn spawn_updates(
 }
 
 fn main() {
-    Application::new().run(|cx| {
+    wgpui_kit::application().run(|cx| {
+        wgpui_kit::init(cx);
+wgpui_kit::component::theme::Theme::change(ThemeMode::Dark, None, cx);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
                 None,

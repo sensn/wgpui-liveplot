@@ -1,12 +1,12 @@
-use gpui::{TextRun, Window, font, px};
+use wgpui::{TextRun, Window, font, px};
 
 use crate::axis::TextMeasurer;
 
-pub(crate) struct GpuiTextMeasurer<'a> {
+pub(crate) struct WgpuiTextMeasurer<'a> {
     window: &'a Window,
 }
 
-impl<'a> GpuiTextMeasurer<'a> {
+impl<'a> WgpuiTextMeasurer<'a> {
     pub(crate) fn new(window: &'a Window) -> Self {
         Self { window }
     }
@@ -23,7 +23,7 @@ impl<'a> GpuiTextMeasurer<'a> {
     }
 }
 
-impl TextMeasurer for GpuiTextMeasurer<'_> {
+impl TextMeasurer for WgpuiTextMeasurer<'_> {
     fn measure(&self, text: &str, size: f32) -> (f32, f32) {
         if text.is_empty() {
             return (0.0, 0.0);
@@ -31,7 +31,7 @@ impl TextMeasurer for GpuiTextMeasurer<'_> {
         let run = TextRun {
             len: text.len(),
             font: font(".SystemUIFont"),
-            color: gpui::black(),
+            color: wgpui::black(), // Updated to pull color out of the wgpui crate namespace
             background_color: None,
             underline: None,
             strikethrough: None,

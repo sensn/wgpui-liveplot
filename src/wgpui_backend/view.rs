@@ -1,15 +1,18 @@
+#[cfg(feature = "wgpui_kit_theme")]
+use wgpui_kit::component::theme::Theme as KitTheme;
+
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use gpui::prelude::*;
-use gpui::{
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point, ScrollWheelEvent,
-    StatefulInteractiveElement, Window, canvas, div, px,
+use wgpui::prelude::*;
+use wgpui::{
+    InteractiveElement, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point,
+    ScrollWheelEvent, Window, canvas, div, px,
 };
 
 use crate::geom::{Point as DataPoint, ScreenPoint, ScreenRect};
 use crate::interaction::{
-    HitRegion, pan_viewport, toggle_pin, zoom_factor_from_drag, zoom_to_rect, zoom_viewport,
+    pan_viewport, toggle_pin, zoom_factor_from_drag, zoom_to_rect, zoom_viewport, HitRegion,
 };
 use crate::plot::Plot;
 use crate::transform::Transform;
@@ -456,14 +459,16 @@ impl Render for PlotView {
         let config = self.config.clone();
         let link = self.link.clone();
         let base_theme = plot.read().expect("plot lock").theme().clone();
-        #[cfg(feature = "gpui_component_theme")]
+        
+        #[cfg(feature = "wgpui_kit_theme")]
         let theme = resolve_theme(base_theme, cx);
-        #[cfg(not(feature = "gpui_component_theme"))]
+        #[cfg(not(feature = "wgpui_kit_theme"))]
         let theme = base_theme;
+        
         let hover_region_id = Arc::as_ptr(&self.state) as usize;
 
         div()
-            .id(("gpui-plot-view", hover_region_id))
+            .id(("wgpui-plot-view", hover_region_id))
             .size_full()
             .bg(to_hsla(theme.background))
             .child(
@@ -471,10 +476,12 @@ impl Render for PlotView {
                     move |bounds, window, _app| {
                         let mut plot = plot.write().expect("plot lock");
                         let mut state = state.write().expect("plot state lock");
-                        #[cfg(feature = "gpui_component_theme")]
-                        if let Some(theme) = resolve_gpui_component_theme(_app) {
+                        
+                        #[cfg(feature = "wgpui_kit_theme")]
+                        if let Some(theme) = resolve_wgpui_kit_theme(_app) {
                             plot.set_theme(theme);
                         }
+                        
                         if let Some(link) = &link {
                             apply_link_updates(link, &mut plot, &mut state);
                         }
@@ -534,22 +541,22 @@ impl Render for PlotView {
     }
 }
 
-#[cfg(feature = "gpui_component_theme")]
-fn resolve_gpui_component_theme(cx: &gpui::App) -> Option<crate::style::Theme> {
-    if cx.has_global::<gpui_component::Theme>() {
-        Some(crate::style::Theme::from_gpui_component_theme(
-            gpui_component::Theme::global(cx),
+#[cfg(feature = "wgpui_kit_theme")]
+fn resolve_wgpui_kit_theme(cx: &wgpui::App) -> Option<crate::style::Theme> {
+    // Prüft, ob das Komponenten-Theme im App-Kontext registriert ist
+    if cx.has_global::<KitTheme>() {
+        Some(crate::style::Theme::from_wgpui_kit_theme(
+            KitTheme::global(cx),
         ))
     } else {
         None
     }
 }
 
-#[cfg(feature = "gpui_component_theme")]
-fn resolve_theme(base: crate::style::Theme, cx: &gpui::App) -> crate::style::Theme {
-    resolve_gpui_component_theme(cx).unwrap_or(base)
+#[cfg(feature = "wgpui_kit_theme")]
+fn resolve_theme(base: crate::style::Theme, cx: &wgpui::App) -> crate::style::Theme {
+    resolve_wgpui_kit_theme(cx).unwrap_or(base)
 }
-
 /// A handle for mutating a [`Plot`] held inside a [`PlotView`].
 ///
 /// The handle clones cheaply and can be moved into async tasks.
