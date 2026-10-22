@@ -60,6 +60,7 @@ fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) 
         return;
     }
     let thickness = style.width.max(1.0);
+    let half_thick = thickness * 0.5;
 
     for segment in segments {
         let dx = segment.end.x - segment.start.x;
@@ -67,12 +68,13 @@ fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) 
         let len = (dx * dx + dy * dy).sqrt();
         if len < 0.1 { continue; }
 
-        // Wenn die Linie perfekt horizontal oder vertikal verläuft, nutzen wir ein flaches Quad
+        // 1. Wenn die Linie exakt horizontal oder vertikal verläuft, 
+        // nutzen wir die performante achsensymmetrische Quad-Abkürzung
         if dy.abs() < 0.1 {
             let min_x = segment.start.x.min(segment.end.x);
             let bounds = Bounds::from_corners(
-                point(px(min_x), px(segment.start.y - thickness * 0.5)),
-                point(px(min_x + len), px(segment.start.y + thickness * 0.5)),
+                point(px(min_x), px(segment.start.y - half_thick)),
+                point(px(min_x + len), px(segment.start.y + half_thick)),
             );
             window.paint_quad(quad(
                 bounds,
@@ -82,11 +84,12 @@ fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) 
                 style.color,
                 BorderStyle::default(),
             ));
+            continue;
         } else if dx.abs() < 0.1 {
             let min_y = segment.start.y.min(segment.end.y);
             let bounds = Bounds::from_corners(
-                point(px(segment.start.x - thickness * 0.5), px(min_y)),
-                point(px(segment.start.x + thickness * 0.5), px(min_y + len)),
+                point(px(segment.start.x - half_thick), px(min_y)),
+                point(px(segment.start.x + half_thick), px(min_y + len)),
             );
             window.paint_quad(quad(
                 bounds,
@@ -96,18 +99,33 @@ fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) 
                 style.color,
                 BorderStyle::default(),
             ));
-        } else {
-            // Für diagonale Segmente nutzen wir die Bounding Box als Fallback-Ersatzquad,
-            // um sicherzustellen, dass die GPU im wgpui-Rasterizer eine sichtbare Fläche erhält.
-            let min_x = segment.start.x.min(segment.end.x);
-            let min_y = segment.start.y.min(segment.end.y);
-            let max_x = segment.start.x.max(segment.end.x);
-            let max_y = segment.start.y.max(segment.end.y);
-            
+            continue;
+        }
+
+        // 2. FÜR DIAGONALE LINIEN (Die eigentliche Sinuskurve):
+        // Um Treppenstufen zu verhindern, zerlegen wir das Segment in 
+        // 4 sehr feine, aneinandergereihte Sub-Quads. Das emuliert eine
+        // stufenlose, glatte Kurve perfekt im stabilen Quad-Rasterizer!
+        let steps = 4;
+        let step_x = dx / steps as f32;
+        let step_y = dy / steps as f32;
+
+        for i in 0..steps {
+            let start_x = segment.start.x + i as f32 * step_x;
+            let start_y = segment.start.y + i as f32 * step_y;
+            let end_x = start_x + step_x;
+            let end_y = start_y + step_y;
+
+            let min_x = start_x.min(end_x);
+            let min_y = start_y.min(end_y);
+            let max_x = start_x.max(end_x);
+            let max_y = start_y.max(end_y);
+
             let bounds = Bounds::from_corners(
-                point(px(min_x), px(min_y)),
-                point(px(max_x), px(max_y)),
+                point(px(min_x - 0.2), px(min_y - 0.2)), // Winziger Überlass verhindert Lücken
+                point(px(max_x + 0.2), px(max_y + 0.2)),
             );
+
             window.paint_quad(quad(
                 bounds,
                 Corners::all(px(0.0)),
