@@ -1,6 +1,6 @@
 use wgpui::{
     App, BorderStyle, Bounds, ContentMask, Corners, Edges, Hsla, PathBuilder, Pixels, Rgba,
-    TextRun, Window, font, point, px, quad, rgb,
+    TextRun, Window, font, point, px, quad, rgb,Point
 };
 
 use crate::geom::{ScreenPoint, ScreenRect};
@@ -14,69 +14,105 @@ use super::frame::PlotFrame;
 // Zeichnet eine Test-Sinuswelle über die WGPUI-Pfad-Pipeline.
 /// Reagiert dynamisch auf Zoom und Pan, da sie KEINE festen Canvas-Bounds nutzt!
 pub fn paint_wgpui_dynamic_test_sine(window: &mut Window) {
+    // 1. Hole die aktuell gültige Maske, die GPUI für diesen Zeichenschritt erlaubt
+    let current_mask = window.content_mask();
+    let bounds = current_mask.bounds;
+
+    // Falls die Maske kollabiert ist (Breite oder Höhe <= 0), abbrechen
+    if bounds.size.width <= px(0.0) || bounds.size.height <= px(0.0) {
+        return;
+    }
+
+    // 2. Nutze die echten Dimensionen des erlaubten Clip-Bereichs
+    let start_x: f32 = bounds.origin.x.into();
+    let width: f32 = bounds.size.width.into();
+    
+    let min_y: f32 = bounds.origin.y.into();
+    let height_box: f32 = bounds.size.height.into();
+    
+    // Berechne die Mitte und die maximale Amplitude innerhalb der Maske
+    let center_y = min_y + (height_box / 2.0);
+    let amplitude = height_box * 0.4; // Nutze 80% des vertikalen Platzes (40% hoch, 40% runter)
+
     let mut builder = PathBuilder::fill();
-    
-    // Fest definierte, absolute Pixel-Koordinaten im Raum.
-    // Diese simulieren die transformierten Datenpunkte deines Plot-Frameworks.
-    let start_x = 100.0_f32;
-    let center_y = 300.0_f32;
-    let width = 400.0_f32;
-    let height = 100.0_f32;
-    let steps = 50;
-    
+    let steps = 60;
     let mut points = Vec::with_capacity(steps + 3);
 
-    // 1. Startpunkt links auf der Nulllinie
+    // Startpunkt links auf der dynamischen Nulllinie
     points.push(point(px(start_x), px(center_y)));
 
-    // 2. Erzeuge die Wellenform über absolute Pixel-Schritte
+    // Erzeuge die Wellenform angepasst an die echten Bounds
     for i in 0..=steps {
         let t = (i as f32) / (steps as f32);
         let cur_x = start_x + width * t;
-        let angle = t * 2.0 * std::f32::consts::PI * 2.0; // 2 Oszillationen
-        let cur_y = center_y + (angle.sin() * height);
+        let angle = t * 2.0 * std::f32::consts::PI * 3.0; // 3 schöne Oszillationen
+        let cur_y = center_y + (angle.sin() * amplitude);
         
         points.push(point(px(cur_x), px(cur_y)));
     }
 
-    // 3. Endpunkt rechts auf der Nulllinie
+    // Endpunkt rechts auf der dynamischen Nulllinie
     points.push(point(px(start_x + width), px(center_y)));
 
-    // 4. Pfad-Struktur übergeben (Strikte WGPUI-Syntax)
+    // Pfad-Struktur aufbauen und füllen
     if let Some(&first) = points.first() {
         builder.move_to(first);
         for &pt in points.iter().skip(1) {
             builder.line_to(pt);
         }
-        builder.close(); // Zwingend schließen!
+        builder.close();
         
         if let Ok(path) = builder.build() {
             window.paint_path(path, rgb(0x06b6d4)); // Cyan-Blau
         }
     }
-}
+    }
 //
 pub(crate) fn paint_frame(frame: &PlotFrame, window: &mut Window, cx: &mut App) {
     let mut clip_stack: Vec<ContentMask<Pixels>> = Vec::new();
     
+    // 1. Die echte absolute Maske des Canvas holen
+    let initial_mask = window.content_mask(); 
+    clip_stack.push(initial_mask.clone());
+    
+    // Der absolute Startpunkt unseres Canvas auf dem Bildschirm
+    let canvas_origin = initial_mask.bounds.origin;
+
     for command in frame.render.commands() {
         match command {
             crate::render::RenderCommand::ClipRect(rect) => {
-                clip_stack.push(ContentMask {
-                    bounds: to_bounds(*rect),
-                });
+                // 2. Lokale Ecken berechnen
+                let local_min = point(px(rect.min.x), px(rect.min.y));
+                let local_max = point(px(rect.max.x), px(rect.max.y));
+                
+                // 3. Absolute Ecken durch Aufaddieren des Canvas-Ursprungs bestimmen
+                let abs_min = point(canvas_origin.x + local_min.x, canvas_origin.y + local_min.y);
+                let abs_max = point(canvas_origin.x + local_max.x, canvas_origin.y + local_max.y);
+                
+                let absolute_bounds = Bounds::from_corners(abs_min, abs_max);
+
+                // 4. Mit der übergeordneten Maske schneiden, um sauberes Verschachteln zu garantieren
+                if let Some(parent_mask) = clip_stack.last() {
+                    clip_stack.push(ContentMask {
+                        bounds: parent_mask.bounds.intersect(&absolute_bounds),
+                    });
+                } else {
+                    clip_stack.push(ContentMask {
+                        bounds: absolute_bounds,
+                    });
+                }
             }
             crate::render::RenderCommand::ClipEnd => {
-                clip_stack.pop();
+                if clip_stack.len() > 1 {
+                    clip_stack.pop();
+                }
             }
             crate::render::RenderCommand::LineSegments { segments, style } => {
                 with_clip(window, &clip_stack, |window| {
-                    paint_lines(window, segments, *style);
-  // 🌟 TEST-TRIGGER: Zeichnet die feste Cyan-Sinuswelle flächig in den Plot!
-        // (Stelle sicher, dass 'bounds' hier im Scope liegt)
-        paint_wgpui_dynamic_test_sine(window); 
-                
-                  });
+                                      //paint_wgpui_dynamic_test_sine(window); 
+                      paint_lines(window, segments, *style); 
+
+                });
             }
             crate::render::RenderCommand::Points { points, style } => {
                 with_clip(window, &clip_stack, |window| {
@@ -88,8 +124,6 @@ pub(crate) fn paint_frame(frame: &PlotFrame, window: &mut Window, cx: &mut App) 
                     paint_rect(window, *rect, *style);
                 });
             }
-            // Hier nutzen wir den gesamten Enum-Pfad und fangen die Text-Variante ab.
-            // Falls der Makro-Konflikt im Match-Arm selbst liegt, nutzen wir den Fallback unten!
             cmd => {
                 if let crate::render::RenderCommand::Text { position, text, style } = cmd {
                     if let Some(mask) = clip_stack.last() {
@@ -105,95 +139,82 @@ pub(crate) fn paint_frame(frame: &PlotFrame, window: &mut Window, cx: &mut App) 
     }
 }
 
-fn paint_lines(window: &mut Window, segments: &[LineSegment], style: LineStyle) {
+
+fn paint_lines(
+    window: &mut Window, 
+    segments: &[LineSegment], 
+    style: LineStyle
+) {
+//_________
+// 1. Hole die aktuell gültige Maske, die GPUI für diesen Zeichenschritt erlaubt
+let current_mask = window.content_mask();
+let bounds = current_mask.bounds;
+
+// Falls die Maske kollabiert ist (Breite oder Höhe <= 0), abbrechen
+if bounds.size.width <= px(0.0) || bounds.size.height <= px(0.0) {
+    return;
+}
+
+// 2. Nutze die echten Dimensionen des erlaubten Clip-Bereichs
+let start_x: f32 = bounds.origin.x.into();
+let width: f32 = bounds.size.width.into();
+
+let min_y: f32 = bounds.origin.y.into();
+let height_box: f32 = bounds.size.height.into();
+
+// 3. Zeichne ein komplett unsichtbares Rechteck (Alpha = 0.0)
+let mut builder = PathBuilder::fill();
+
+builder.move_to(point(px(start_x), px(min_y)));                  // Oben links
+builder.line_to(point(px(start_x + width), px(min_y)));          // Oben rechts
+builder.line_to(point(px(start_x + width), px(min_y + height_box))); // Unten rechts
+builder.line_to(point(px(start_x), px(min_y + height_box)));     // Unten links
+builder.close(); 
+
+if let Ok(path) = builder.build() {
+    let mut transparent_color = rgb(0x06b6d4);
+    transparent_color.a = 0.0; // 🌟 100% Unsichtbar!
+    window.paint_path(path, transparent_color);
+}
+
+    
+//_______
+
+
     if segments.is_empty() {
         return;
     }
     
-    // FIX 1: Wir garantieren eine Mindeststärke von 1.5 Pixeln, 
-    // um High-DPI/Subpixel-Verschlucken auf Linux-Treibern zu verhindern!
-    let thickness = style.width.max(1.5);
-    let half_thick = thickness * 0.5;
+    // 1. Maske abrufen und Bounds korrekt zuweisen!
+    let current_mask = window.content_mask();
+    let bounds = current_mask.bounds;
 
+    // Canvas-Offset extrahieren (Der absolute Startpunkt auf dem Bildschirm)
+    let offset_x: f32 = bounds.origin.x.into();
+    let offset_y: f32 = bounds.origin.y.into();
+
+    // 2. Linienstärke definieren
+    let thickness = style.width.max(3.0);
+    let mut builder = PathBuilder::stroke(px(thickness));
+
+    // 3. Jedes Segment einzeln zeichnen (Move + Line für diskrete Abschnitte)
     for segment in segments {
-        let dx = segment.end.x - segment.start.x;
-        let dy = segment.end.y - segment.start.y;
-        let len = (dx * dx + dy * dy).sqrt();
-        if len < 0.1 { continue; }
-
-        // Perfekt horizontale Linien (z.B. Gitterlinien)
-        if dy.abs() < 0.1 {
-            let min_x = segment.start.x.min(segment.end.x);
-            let bounds = Bounds::from_corners(
-                point(px(min_x), px(segment.start.y - half_thick)),
-                point(px(min_x + len), px(segment.start.y + half_thick)),
-            );
-            window.paint_quad(quad(
-                bounds,
-                Corners::all(px(0.0)),
-                style.color,
-                Edges::all(px(0.0)),
-                style.color,
-                BorderStyle::default(),
-            ));
-            continue;
-        } 
+        let sx = offset_x + (segment.start.x as f32);
+        let sy = offset_y + (segment.start.y as f32);
+        let ex = offset_x + (segment.end.x as f32);
+        let ey = offset_y + (segment.end.y as f32);
         
-        // Perfekt vertikale Linien
-        if dx.abs() < 0.1 {
-            let min_y = segment.start.y.min(segment.end.y);
-            let bounds = Bounds::from_corners(
-                point(px(segment.start.x - half_thick), px(min_y)),
-                point(px(segment.start.x + half_thick), px(min_y + len)),
-            );
-            window.paint_quad(quad(
-                bounds,
-                Corners::all(px(0.0)),
-                style.color,
-                Edges::all(px(0.0)),
-                style.color,
-                BorderStyle::default(),
-            ));
-            continue;
-        }
+        builder.move_to(point(px(sx), px(sy)));
+        builder.line_to(point(px(ex), px(ey)));
+    }
 
-        // FIX 2: DIAGONALE SEGMENTE (Die Sinuskurve)
-        // Wir nutzen KEIN paint_path. Wir zerlegen das Segment direkt in 
-        // extrem dichte, überlappende Quad-Flächen. Das zwingt die GPU über die 
-        // stabile Quad-Pipeline Pixel auszugeben und tilgt Treppenstufen komplett!
-        let steps = (len * 2.0).ceil().max(4.0) as usize; // Höhere Dichte für perfekte Glättung
-        let step_x = dx / steps as f32;
-        let step_y = dy / steps as f32;
-
-        for i in 0..steps {
-            let s_x = segment.start.x + i as f32 * step_x;
-            let s_y = segment.start.y + i as f32 * step_y;
-            let e_x = s_x + step_x;
-            let e_y = s_y + step_y;
-
-            let min_x = s_x.min(e_x);
-            let min_y = s_y.min(e_y);
-            let max_x = s_x.max(e_x);
-            let max_y = s_y.max(e_y);
-
-            // Bounds mit Sicherheitsüberlapp (+0.3) gegen subpixel-Spalten
-            let bounds = Bounds::from_corners(
-                point(px(min_x - half_thick - 0.3), px(min_y - half_thick - 0.3)),
-                point(px(max_x + half_thick + 0.3), px(max_y + half_thick + 0.3)),
-            );
-
-            window.paint_quad(quad(
-                bounds,
-                Corners::all(px(0.0)),
-                style.color,
-                Edges::all(px(0.0)),
-                style.color,
-                BorderStyle::default(),
-            ));
-        }
+    // 4. Pfad erzeugen und im Window einreichen
+    if let Ok(path) = builder.build() {
+        let mut opaque_color = style.color;
+        opaque_color.a = 1.0; // Verhindert Shader-Transparenzfehler
+        window.paint_path(path, opaque_color);
     }
 }
-
 
 fn paint_points(window: &mut Window, points: &[ScreenPoint], style: MarkerStyle) {
     if points.is_empty() {
@@ -331,7 +352,16 @@ fn to_bounds(rect: ScreenRect) -> Bounds<Pixels> {
         point(px(rect.max.x), px(rect.max.y)),
     )
 }
-
+fn with_clip(window: &mut Window, stack: &[ContentMask<Pixels>], f: impl FnOnce(&mut Window)) {
+    // 🛡️ DIAGNOSE: Wir ignorieren die gepushten Sub-Masken und nutzen IMMER 
+    // das allererste Element (die originale, funktionierende Canvas-Maske)
+    if let Some(initial_mask) = stack.first() {
+        window.with_content_mask(Some(initial_mask.clone()), f);
+    } else {
+        f(window);
+    }
+}
+/*
 fn with_clip(window: &mut Window, stack: &[ContentMask<Pixels>], f: impl FnOnce(&mut Window)) {
     if let Some(mask) = stack.last() {
         window.with_content_mask(Some(mask.clone()), f);
@@ -339,3 +369,4 @@ fn with_clip(window: &mut Window, stack: &[ContentMask<Pixels>], f: impl FnOnce(
         f(window);
     }
 }
+*/
