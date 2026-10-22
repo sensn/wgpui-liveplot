@@ -9,64 +9,7 @@ use crate::render::{
 };
 
 use super::frame::PlotFrame;
-//
-//use wgpui::{Window, PathBuilder, Pixels, Bounds, point, px, rgb};
-// Zeichnet eine Test-Sinuswelle über die WGPUI-Pfad-Pipeline.
-/// Reagiert dynamisch auf Zoom und Pan, da sie KEINE festen Canvas-Bounds nutzt!
-pub fn paint_wgpui_dynamic_test_sine(window: &mut Window) {
-    // 1. Hole die aktuell gültige Maske, die GPUI für diesen Zeichenschritt erlaubt
-    let current_mask = window.content_mask();
-    let bounds = current_mask.bounds;
 
-    // Falls die Maske kollabiert ist (Breite oder Höhe <= 0), abbrechen
-    if bounds.size.width <= px(0.0) || bounds.size.height <= px(0.0) {
-        return;
-    }
-
-    // 2. Nutze die echten Dimensionen des erlaubten Clip-Bereichs
-    let start_x: f32 = bounds.origin.x.into();
-    let width: f32 = bounds.size.width.into();
-    
-    let min_y: f32 = bounds.origin.y.into();
-    let height_box: f32 = bounds.size.height.into();
-    
-    // Berechne die Mitte und die maximale Amplitude innerhalb der Maske
-    let center_y = min_y + (height_box / 2.0);
-    let amplitude = height_box * 0.4; // Nutze 80% des vertikalen Platzes (40% hoch, 40% runter)
-
-    let mut builder = PathBuilder::fill();
-    let steps = 60;
-    let mut points = Vec::with_capacity(steps + 3);
-
-    // Startpunkt links auf der dynamischen Nulllinie
-    points.push(point(px(start_x), px(center_y)));
-
-    // Erzeuge die Wellenform angepasst an die echten Bounds
-    for i in 0..=steps {
-        let t = (i as f32) / (steps as f32);
-        let cur_x = start_x + width * t;
-        let angle = t * 2.0 * std::f32::consts::PI * 3.0; // 3 schöne Oszillationen
-        let cur_y = center_y + (angle.sin() * amplitude);
-        
-        points.push(point(px(cur_x), px(cur_y)));
-    }
-
-    // Endpunkt rechts auf der dynamischen Nulllinie
-    points.push(point(px(start_x + width), px(center_y)));
-
-    // Pfad-Struktur aufbauen und füllen
-    if let Some(&first) = points.first() {
-        builder.move_to(first);
-        for &pt in points.iter().skip(1) {
-            builder.line_to(pt);
-        }
-        builder.close();
-        
-        if let Ok(path) = builder.build() {
-            window.paint_path(path, rgb(0x06b6d4)); // Cyan-Blau
-        }
-    }
-    }
 //
 pub(crate) fn paint_frame(frame: &PlotFrame, window: &mut Window, cx: &mut App) {
     let mut clip_stack: Vec<ContentMask<Pixels>> = Vec::new();
@@ -75,6 +18,7 @@ pub(crate) fn paint_frame(frame: &PlotFrame, window: &mut Window, cx: &mut App) 
     let initial_mask = window.content_mask(); 
     clip_stack.push(initial_mask.clone());
     
+          
     // Der absolute Startpunkt unseres Canvas auf dem Bildschirm
     let canvas_origin = initial_mask.bounds.origin;
 
@@ -109,7 +53,6 @@ pub(crate) fn paint_frame(frame: &PlotFrame, window: &mut Window, cx: &mut App) 
             }
             crate::render::RenderCommand::LineSegments { segments, style } => {
                 with_clip(window, &clip_stack, |window| {
-                                      //paint_wgpui_dynamic_test_sine(window); 
                       paint_lines(window, segments, *style); 
 
                 });
@@ -145,7 +88,11 @@ fn paint_lines(
     segments: &[LineSegment], 
     style: LineStyle
 ) {
-//_________
+
+//----START QUAD FIX for paint_lines (stroke) ---- 
+    // 🛡️ UNIVERSELLER PIPELINE-TRIGGER:
+    // Ein schnelles, unsichtbares Fill-Primitiv flusht die WGPUI-Pipeline,
+    // so dass alle nachfolgenden `stroke`-Befehle in der Schleife garantiert rendern!
 // 1. Hole die aktuell gültige Maske, die GPUI für diesen Zeichenschritt erlaubt
 let current_mask = window.content_mask();
 let bounds = current_mask.bounds;
@@ -154,14 +101,11 @@ let bounds = current_mask.bounds;
 if bounds.size.width <= px(0.0) || bounds.size.height <= px(0.0) {
     return;
 }
-
 // 2. Nutze die echten Dimensionen des erlaubten Clip-Bereichs
 let start_x: f32 = bounds.origin.x.into();
 let width: f32 = bounds.size.width.into();
-
 let min_y: f32 = bounds.origin.y.into();
 let height_box: f32 = bounds.size.height.into();
-
 // 3. Zeichne ein komplett unsichtbares Rechteck (Alpha = 0.0)
 let mut builder = PathBuilder::fill();
 
@@ -176,9 +120,7 @@ if let Ok(path) = builder.build() {
     transparent_color.a = 0.0; // 🌟 100% Unsichtbar!
     window.paint_path(path, transparent_color);
 }
-
-    
-//_______
+ //----END QUAD FIX for paint_lines (stroke) ---- 
 
 
     if segments.is_empty() {

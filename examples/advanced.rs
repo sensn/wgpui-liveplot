@@ -5,7 +5,7 @@ use wgpui::{
     AppContext, AsyncWindowContext, Bounds, WindowBounds, WindowOptions, div,
     px, size,
 };
-
+use wgpui_kit::component::theme::{ThemeMode};
 use wgpui_liveplot::{
     AxisConfig, LineStyle, MarkerShape, MarkerStyle, Plot, PlotLinkGroup, PlotLinkOptions,
     PlotView, PlotViewConfig, Range, Rgba, Series, SeriesKind, Theme, View,

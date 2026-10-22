@@ -3,15 +3,17 @@ use wgpui::{ AppContext, Bounds, WindowBounds, WindowOptions, px, size};
 use wgpui_liveplot::{
     AxisConfig, LineStyle, MarkerShape, MarkerStyle, Plot, PlotView, PlotViewConfig, Rgba, Series, SeriesKind, Theme,
 };
+use wgpui_kit::component::theme::{ThemeMode};
 
 fn main() {
     // wgpui_kit::application() ersetzt die alten GPUI Application-Hooks,
     // um eine native wgpu + winit Fensterschleife aufzubauen.
     wgpui_kit::application().run(|cx| {
+            
         // Initialisiert die UI-Komponenten und das globale Design-System des Toolkits.
         wgpui_kit::init(cx);
-        //wgpui_kit::component::theme::Theme::change(ThemeMode::Dark, None, cx);
-
+        wgpui_kit::component::theme::Theme::change(ThemeMode::Dark, None, cx);
+       
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
                 None,
